@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'users_auth',
+    'healthassessment',
 ]
 
 MIDDLEWARE = [
@@ -116,10 +117,8 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': config('DB_NAME'),
         'USER': config('DB_USER'),
-        # 'PASSWORD': config('DB_PASSWORD'),
-        'PASSWORD': '',
-        # 'HOST': config('DB_HOST'),
-        'HOST': '',
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT'),
     }
 }

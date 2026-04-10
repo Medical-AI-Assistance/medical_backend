@@ -1,5 +1,5 @@
 from django.db import models
-from generic.models import GenericEntity, GenericIdEntity
+from generic.models import GenericIdEntity
 from django.conf import settings
 
 
@@ -49,6 +49,7 @@ class Answer(GenericIdEntity):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
     answer_text = models.TextField()
+    test_field = models.BooleanField(default=False)
 
     class Meta:
         db_table = "healthassessment_answer"
