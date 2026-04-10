@@ -5,7 +5,7 @@ from healthassessment.models import Section, Question, Option, Answer
 class SectionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Section
-        fields = "__all__"
+        fields = ["reference_id", "name"]
 
 
 class OptionSerializer(serializers.ModelSerializer):
@@ -16,7 +16,7 @@ class OptionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Option
-        fields = "__all__"
+        fields = ["reference_id", "question", "option_text"]
 
 
 class QuestionSerializer(serializers.ModelSerializer):
@@ -28,7 +28,7 @@ class QuestionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Question
-        fields = "__all__"
+        fields = ["reference_id", "section", "options", "question_text", "input_type"]
 
 
 class AnswerSerializer(serializers.ModelSerializer):
@@ -39,5 +39,5 @@ class AnswerSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Answer
-        fields = "__all__"
-        read_only_fields = ["user"]
+        fields = ["reference_id", "user", "session", "question", "answer_text"]
+        read_only_fields = ["user", "session"]  
