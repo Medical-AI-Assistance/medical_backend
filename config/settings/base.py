@@ -116,8 +116,10 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': config('DB_NAME'),
         'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST'),
+        # 'PASSWORD': config('DB_PASSWORD'),
+        'PASSWORD': '',
+        # 'HOST': config('DB_HOST'),
+        'HOST': '',
         'PORT': config('DB_PORT'),
     }
 }
@@ -130,6 +132,8 @@ EMAIL_HOST_USER = config('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
 
+
+NVIDIA_API_KEY = config('NVIDIA_API_KEY')
 
 # Media files
 MEDIA_URL = '/media/'

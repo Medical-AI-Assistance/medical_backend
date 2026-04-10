@@ -1,0 +1,48 @@
+Git is asking for a username because you're cloning over HTTPS and it needs authentication. To stop it from prompting every time, you’ve got a few solid options:
+
+🔑 Option 1: Use a Personal Access Token (recommended for HTTPS)
+
+GitHub no longer allows password auth, so you should use a token.
+
+Steps:
+Go to GitHub → Settings → Developer Settings → Personal Access Tokens
+Generate a token (classic or fine-grained)
+Use it instead of your password when prompted
+
+👉 To store it permanently, run:
+
+git config --global credential.helper store
+
+After you enter it once, Git will save it and won’t ask again.
+
+🔐 Option 2: Use SSH (best long-term solution)
+
+This avoids login prompts entirely.
+
+Steps:
+Generate SSH key:
+ssh-keygen -t ed25519 -C "your_email@example.com"
+Add key to SSH agent:
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+Copy your public key:
+cat ~/.ssh/id_ed25519.pub
+Add it to GitHub → Settings → SSH and GPG keys
+Clone using SSH instead:
+git clone git@github.com:Medical-AI-Assistance/medical_backend.git
+
+✅ Now Git will NEVER ask for username/password again.
+
+💾 Option 3: Cache credentials temporarily
+
+If you don’t want permanent storage:
+
+git config --global credential.helper cache
+
+(Default cache is ~15 minutes, can be extended.)
+
+👍 What I’d recommend
+If you’re doing frequent Git work → use SSH
+If you want quick fix → credential.helper store
+
+If you want, I can walk you through setting up SSH step-by-step for your exact system 👍
