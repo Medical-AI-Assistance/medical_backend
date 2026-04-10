@@ -9,6 +9,11 @@ class SectionSerializer(serializers.ModelSerializer):
 
 
 class OptionSerializer(serializers.ModelSerializer):
+    question = serializers.SlugRelatedField(
+        slug_field="reference_id", 
+        queryset=Question.objects.all()
+    )
+
     class Meta:
         model = Option
         fields = "__all__"
@@ -16,6 +21,10 @@ class OptionSerializer(serializers.ModelSerializer):
 
 class QuestionSerializer(serializers.ModelSerializer):
     options = OptionSerializer(many=True, read_only=True)
+    section = serializers.SlugRelatedField(
+        slug_field="reference_id", 
+        queryset=Section.objects.all()
+    )
 
     class Meta:
         model = Question
@@ -23,6 +32,11 @@ class QuestionSerializer(serializers.ModelSerializer):
 
 
 class AnswerSerializer(serializers.ModelSerializer):
+    question = serializers.SlugRelatedField(
+        slug_field="reference_id",
+        read_only=True
+    )
+    
     class Meta:
         model = Answer
         fields = "__all__"

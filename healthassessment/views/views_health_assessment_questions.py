@@ -34,9 +34,9 @@ class SectionCreateAPIView(APIView):
 
 class SectionDetailAPIView(APIView):
 
-    def get(self, request, pk):
+    def get(self, request, reference_id):
         try:
-            section = Section.objects.get(pk=pk)
+            section = Section.objects.get(reference_id=reference_id)
         except Section.DoesNotExist:
             return Response({"error": "Not found"}, status=404)
 
@@ -46,9 +46,9 @@ class SectionDetailAPIView(APIView):
 
 class SectionUpdateAPIView(APIView):
 
-    def put(self, request, pk):
+    def put(self, request, reference_id):
         try:
-            section = Section.objects.get(pk=pk)
+            section = Section.objects.get(reference_id=reference_id)
         except Section.DoesNotExist:
             return Response({"error": "Not found"}, status=404)
 
@@ -63,9 +63,9 @@ class SectionUpdateAPIView(APIView):
 
 class SectionDeleteAPIView(APIView):
 
-    def delete(self, request, pk):
+    def delete(self, request, reference_id):
         try:
-            section = Section.objects.get(pk=pk)
+            section = Section.objects.get(reference_id=reference_id)
         except Section.DoesNotExist:
             return Response({"error": "Not found"}, status=404)
 
@@ -74,12 +74,12 @@ class SectionDeleteAPIView(APIView):
     
 
 
-class QuestionListAPIView(APIView):
+# class QuestionListAPIView(APIView):
 
-    def get(self, request):
-        questions = Question.objects.all()
-        serializer = QuestionSerializer(questions, many=True)
-        return Response(serializer.data)
+#     def get(self, request):
+#         questions = Question.objects.all()
+#         serializer = QuestionSerializer(questions, many=True)
+#         return Response(serializer.data)
     
 
 class QuestionCreateAPIView(APIView):
@@ -96,9 +96,9 @@ class QuestionCreateAPIView(APIView):
 
 class QuestionDetailAPIView(APIView):
 
-    def get(self, request, pk):
+    def get(self, request, reference_id):
         try:
-            question = Question.objects.get(pk=pk)
+            question = Question.objects.get(reference_id=reference_id)
         except Question.DoesNotExist:
             return Response({"error": "Not found"}, status=404)
 
@@ -108,9 +108,9 @@ class QuestionDetailAPIView(APIView):
 
 class QuestionUpdateAPIView(APIView):
 
-    def put(self, request, pk):
+    def put(self, request, reference_id):
         try:
-            question = Question.objects.get(pk=pk)
+            question = Question.objects.get(reference_id=reference_id)
         except Question.DoesNotExist:
             return Response({"error": "Not found"}, status=404)
 
@@ -125,9 +125,9 @@ class QuestionUpdateAPIView(APIView):
 
 class QuestionDeleteAPIView(APIView):
 
-    def delete(self, request, pk):
+    def delete(self, request, reference_id):
         try:
-            question = Question.objects.get(pk=pk)
+            question = Question.objects.get(reference_id=reference_id)
         except Question.DoesNotExist:
             return Response({"error": "Not found"}, status=404)
 
@@ -155,9 +155,9 @@ class OptionCreateAPIView(APIView):
     
 class OptionDetailAPIView(APIView):
 
-    def get(self, request, pk):
+    def get(self, request, reference_id):
         try:
-            option = Option.objects.get(pk=pk)
+            option = Option.objects.get(reference_id=reference_id)
         except Option.DoesNotExist:
             return Response({"error": "Not found"}, status=404)
 
@@ -166,8 +166,8 @@ class OptionDetailAPIView(APIView):
     
 class OptionUpdateAPIView(APIView):
 
-    def put(self, request, pk):
-        option = Option.objects.get(pk=pk)
+    def put(self, request, reference_id):
+        option = Option.objects.get(reference_id=reference_id)
         serializer = OptionSerializer(option, data=request.data)
 
         if serializer.is_valid():
@@ -178,7 +178,48 @@ class OptionUpdateAPIView(APIView):
     
 class OptionDeleteAPIView(APIView):
 
-    def delete(self, request, pk):
-        option = Option.objects.get(pk=pk)
+    def delete(self, request, reference_id):
+        option = Option.objects.get(reference_id=reference_id)
         option.delete()
         return Response({"message": "Deleted"})
+
+
+
+
+class QuestionListAPIView(APIView):
+
+    def get(self, request):
+
+        sections = Section.objects.all()
+
+        data = []
+
+        for section in sections:
+
+            questions_data = []
+
+            questions = Question.objects.filter(section=section)
+
+            for q in questions:
+
+                options = []
+
+                if q.input_type == "mcq":
+                    options = [
+                        {"reference_id": opt.reference_id, "text": opt.option_text}
+                        for opt in q.options.all()
+                    ]
+
+                questions_data.append({
+                    "reference_id": q.reference_id,
+                    "question": q.question_text,
+                    "type": q.input_type,
+                    "options": options
+                })
+
+            data.append({
+                "section": section.name,
+                "questions": questions_data
+            })
+
+        return Response(data)

@@ -21,12 +21,17 @@ class AnswerSubmitAPIView(APIView):
         saved = []
 
         for item in answers:
+            try:
+                question = Question.objects.get(reference_id=item.get("reference_id"))
+            except Question.DoesNotExist:
+                continue
+
             Answer.objects.create(
                 user=request.user,
-                question_id=item["question_id"],
-                answer_text=item["answer"]
+                question=question,
+                answer_text=item.get("answer", "")
             )
-            saved.append(item["question_id"])
+            saved.append(str(question.reference_id))
 
         return Response({
             "message": "Answers submitted",
