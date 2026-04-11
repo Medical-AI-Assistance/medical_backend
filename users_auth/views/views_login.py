@@ -155,14 +155,14 @@ class ChangePasswordView(APIView):
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
     """
     API endpoint to get and update user profile
     
     """
     serializer_class = UserSerializer
-    authentication_classes = [CookieJWTAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
-    
     def get_object(self):   
         return self.request.user
     

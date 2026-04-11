@@ -20,6 +20,11 @@ urlpatterns = [
     path('forgot-password/resend-otp/', views.ResendForgotPasswordOTPView.as_view(), name='forgot-password-resend-otp'),
     
     # User Profile
-    path('profile/', views.UserProfileView.as_view(), name='profile'),
+    path('profile/', views.UserProfileDetailView.as_view(), name='profile'),
+    path('profile/update/', views.UserProfileUpdateView.as_view(), name='profile-update'),
     path('change-password/', views.ChangePasswordView.as_view(), name='change-password'),
+
+    # Notifications
+    path('notifications/', views.NotificationListAPIView.as_view(), name='notifications'),
+    path('notifications/<pk>/read/', views.MarkNotificationReadView.as_view(), name='mark-notification-read'),
 ]
