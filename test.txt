@@ -1,48 +1,492 @@
-Git is asking for a username because you're cloning over HTTPS and it needs authentication. To stop it from prompting every time, you’ve got a few solid options:
+from django.db import models
+from generic.models import GenericIdEntity
+from django.conf import settings
 
-🔑 Option 1: Use a Personal Access Token (recommended for HTTPS)
 
-GitHub no longer allows password auth, so you should use a token.
+class Section(GenericIdEntity):
+    name = models.CharField(max_length=200, unique=True)
 
-Steps:
-Go to GitHub → Settings → Developer Settings → Personal Access Tokens
-Generate a token (classic or fine-grained)
-Use it instead of your password when prompted
+    class Meta:
+        db_table = "healthassessment_section"
+        managed = True
 
-👉 To store it permanently, run:
+    def __str__(self):
+        return self.name
 
-git config --global credential.helper store
 
-After you enter it once, Git will save it and won’t ask again.
+class Question(GenericIdEntity):
+    INPUT_TYPES = [
+        ("text", "Text"),
+        ("number", "Number"),
+        ("mcq", "Multiple Choice"),
+    ]
 
-🔐 Option 2: Use SSH (best long-term solution)
+    section = models.ForeignKey(Section, on_delete=models.CASCADE)
+    question_text = models.TextField()
+    input_type = models.CharField(max_length=20, choices=INPUT_TYPES)
 
-This avoids login prompts entirely.
+    class Meta:
+        db_table = "healthassessment_question"
+        managed = True
 
-Steps:
-Generate SSH key:
-ssh-keygen -t ed25519 -C "your_email@example.com"
-Add key to SSH agent:
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519
-Copy your public key:
-cat ~/.ssh/id_ed25519.pub
-Add it to GitHub → Settings → SSH and GPG keys
-Clone using SSH instead:
-git clone git@github.com:Medical-AI-Assistance/medical_backend.git
+    def __str__(self):
+        return self.question_text
 
-✅ Now Git will NEVER ask for username/password again.
 
-💾 Option 3: Cache credentials temporarily
+class Option(GenericIdEntity):
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="options")
+    option_text = models.CharField(max_length=200)
 
-If you don’t want permanent storage:
+    class Meta:
+        db_table = "healthassessment_option"
+        managed = True
 
-git config --global credential.helper cache
+    def __str__(self):
+        return self.option_text
+    
 
-(Default cache is ~15 minutes, can be extended.)
+class AssessmentSession(GenericIdEntity):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
-👍 What I’d recommend
-If you’re doing frequent Git work → use SSH
-If you want quick fix → credential.helper store
+    class Meta:
+        db_table = "healthassessment_assessment_session"
+        managed = True
 
-If you want, I can walk you through setting up SSH step-by-step for your exact system 👍
+    def __str__(self):
+        return f"{self.user.username} - {self.created_at}"  
+
+
+class Answer(GenericIdEntity):
+    session = models.ForeignKey(
+        AssessmentSession,
+        on_delete=models.CASCADE,
+        related_name="answers",
+        null=True,
+        blank=True
+    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    answer_text = models.TextField()
+    
+    class Meta:
+        db_table = "healthassessment_answer"
+        managed = True
+
+
+
+
+this is the model i have used to create the medical assistent web application 
+
+from rest_framework import serializers
+from healthassessment.models import Section, Question, Option, Answer
+
+
+class SectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Section
+        fields = ["reference_id", "name"]
+
+
+class OptionSerializer(serializers.ModelSerializer):
+    question = serializers.SlugRelatedField(
+        slug_field="reference_id", 
+        queryset=Question.objects.all()
+    )
+
+    class Meta:
+        model = Option
+        fields = ["reference_id", "question", "option_text"]
+
+
+class QuestionSerializer(serializers.ModelSerializer):
+    options = OptionSerializer(many=True, read_only=True)
+    section = serializers.SlugRelatedField(
+        slug_field="reference_id", 
+        queryset=Section.objects.all()
+    )
+
+    class Meta:
+        model = Question
+        fields = ["reference_id", "section", "options", "question_text", "input_type"]
+
+
+class AnswerSerializer(serializers.ModelSerializer):
+    question = serializers.SlugRelatedField(
+        slug_field="reference_id",
+        read_only=True
+    )
+    
+    class Meta:
+        model = Answer
+        fields = ["reference_id", "user", "session", "question", "answer_text"]
+        read_only_fields = ["user", "session"]  
+
+
+this is serializers 
+
+
+from uritemplate import partial
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+
+from healthassessment.models import Section, Question, Option, Answer
+from healthassessment.serializers import (
+    SectionSerializer,
+    QuestionSerializer,
+    OptionSerializer,
+    AnswerSerializer
+)
+from core import permissions
+from core.authentication import CookieJWTAuthentication 
+
+
+class SectionListAPIView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        sections = Section.objects.all()
+        serializer = SectionSerializer(sections, many=True)
+        return Response({
+            "message": "Sections fetched successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+    
+
+class SectionCreateAPIView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = SectionSerializer(data=request.data)
+
+        section = Section.objects.filter(name=request.data.get("name")).first()
+        if section:
+            return Response({
+                "message": "Section already exists",
+            }, status=status.HTTP_400_BAD_REQUEST)  
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "message": "Section created successfully",
+            }, status=status.HTTP_201_CREATED)
+
+        return Response({
+            "message": "Section creation failed",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class SectionDetailAPIView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, reference_id):
+        try:
+            section = Section.objects.get(reference_id=reference_id)
+        except Section.DoesNotExist:
+            return Response({"error": "Not found"}, status=404)
+
+        serializer = SectionSerializer(section)
+        return Response(serializer.data)
+    
+
+class SectionUpdateAPIView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request, reference_id):
+        try:
+            section = Section.objects.get(reference_id=reference_id)
+        except Section.DoesNotExist:
+            return Response({"error": "Not found"}, status=404)
+
+        serializer = SectionSerializer(section, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "message": "Section updated successfully",
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            "message": "Section update failed",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class SectionDeleteAPIView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, reference_id):
+        try:
+            section = Section.objects.get(reference_id=reference_id)
+        except Section.DoesNotExist:
+            return Response({"error": "Not found"}, status=404)
+
+        section.delete()
+        return Response({"message": "Deleted"})
+    
+
+
+
+class QuestionListAPIView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+
+        sections = Section.objects.all() 
+
+        data = []
+
+        for section in sections:
+
+            questions_data = []
+
+            questions = Question.objects.filter(section=section)
+
+            for q in questions:
+
+                options = []
+
+                if q.input_type == "mcq":
+                    options = [
+                        {"reference_id": opt.reference_id, "text": opt.option_text}
+                        for opt in q.options.all()
+                    ]
+
+                questions_data.append({
+                    "reference_id": q.reference_id,
+                    "question": q.question_text,
+                    "type": q.input_type,
+                    "options": options
+                })
+
+            data.append({
+                "section": section.name,
+                "questions": questions_data
+            })
+
+        return Response(data)
+    
+
+class QuestionCreateAPIView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = QuestionSerializer(data=request.data)
+
+ 
+        if not request.data.get("section"):
+            return Response({
+                "message": "Section is required",
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if not request.data.get("question_text"):
+            return Response({
+                "message": "Question text is required",
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if not request.data.get("input_type"):
+            return Response({
+                "message": "Input type is required",
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        input_type_choice = ["text", "number", "mcq"]
+
+        if request.data.get("input_type") not in input_type_choice:
+            return Response({
+                "message": "Invalid input type",
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        question = Question.objects.filter(question_text=request.data.get("question_text")).first()
+        if question:
+            return Response({
+                "message": "Question already exists",
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "message": "Question created successfully",
+            }, status=status.HTTP_201_CREATED)
+
+        return Response({
+            "message": "Question creation failed",
+            "errors": serializer.errors
+        }, status=400)
+    
+
+class QuestionDetailAPIView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, reference_id):
+        try:
+            question = Question.objects.get(reference_id=reference_id)
+        except Question.DoesNotExist:
+            return Response({"error": "Not found"}, status=404)
+
+        serializer = QuestionSerializer(question)
+        return Response({
+            "message": "Question fetched successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+    
+
+class QuestionUpdateAPIView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request, reference_id):
+        try:
+            question = Question.objects.get(reference_id=reference_id)
+        except Question.DoesNotExist:
+            return Response({"error": "Not found"}, status=404)
+
+        serializer = QuestionSerializer(question, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "message": "Question updated successfully",
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            "message": "Question update failed",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class QuestionDeleteAPIView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, reference_id):
+        try:
+            question = Question.objects.get(reference_id=reference_id)
+        except Question.DoesNotExist:
+            return Response({"error": "Not found"}, status=404)
+
+        question.delete()
+        return Response({
+            "message": "Deleted",
+        }, status=status.HTTP_200_OK)
+    
+class OptionListAPIView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        options = Option.objects.all()
+        serializer = OptionSerializer(options, many=True)
+        return Response({
+            "message": "Options fetched successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+    
+
+class OptionCreateAPIView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = OptionSerializer(data=request.data)
+
+        if not request.data.get("question"):
+            return Response({
+                "message": "Question is required",
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if not request.data.get("option_text"):
+            return Response({
+                "message": "Option text is required",
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        option = Option.objects.filter(option_text=request.data.get("option_text")).first()
+        if option:
+            return Response({
+                "message": "Option already exists",
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        question = Question.objects.filter(reference_id=request.data.get("question")).first()
+        if not question:
+            return Response({
+                "message": "Question not found",
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "message": "Option created successfully",
+            }, status=status.HTTP_201_CREATED)
+
+        return Response({
+            "message": "Option creation failed",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    
+class OptionDetailAPIView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, reference_id):
+        try:
+            option = Option.objects.get(reference_id=reference_id)
+        except Option.DoesNotExist:
+            return Response({"error": "Not found"}, status=404)
+
+        serializer = OptionSerializer(option)
+        return Response(serializer.data)
+    
+    
+class OptionUpdateAPIView(APIView): 
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request, reference_id):
+        try:
+            option = Option.objects.get(reference_id=reference_id)
+        except Option.DoesNotExist:
+            return Response({"error": "Option not found"}, status=404)        
+        
+        serializer = OptionSerializer(option, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "message": "Option updated successfully",
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            "message": "Option update failed",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class OptionDeleteAPIView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, reference_id):
+        try:
+            option = Option.objects.get(reference_id=reference_id)
+        except Option.DoesNotExist:
+            return Response({"error": "Option not found"}, status=404)
+        
+        option.delete()
+        return Response({"message": "Deleted"}, status=status.HTTP_200_OK)
+
+
+
+
+and this is view what i have used to create sections, questions but however what i want to make is i want to implement four type of health assessment like general health assessment, cardiovascular, diabetes and respiratory assessment just by asking questions.
+for example for general health assessment i make 4 section basic info, Lifestyle Habits, Medical History and Current Symptoms each section will have some question and all these we feed to reasoning model to predict what is the problem. so just like that we need to make for cardiovascular, diabetes and respiratory so for this what will be out approach like we need to make a model for this department of health assessment right. lets do this step by step.

@@ -2,13 +2,33 @@ from django.db import models
 from generic.models import GenericIdEntity
 from django.conf import settings
 
+class AssessmentType(GenericIdEntity):
+    name = models.CharField(max_length=200, unique=True)
+    description = models.TextField(null=True, blank=True)
+
+    class Meta:
+        db_table = "healthassessment_assessment_type"
+        managed = True
+
+    def __str__(self):
+        return self.name
+
 
 class Section(GenericIdEntity):
-    name = models.CharField(max_length=200, unique=True)
+    assessment_type = models.ForeignKey(
+        AssessmentType,
+        on_delete=models.CASCADE,
+        related_name="sections",
+        null=True,
+        blank=True
+    )
+
+    name = models.CharField(max_length=200)
 
     class Meta:
         db_table = "healthassessment_section"
         managed = True
+        unique_together = ('assessment_type', 'name')
 
     def __str__(self):
         return self.name
@@ -21,6 +41,13 @@ class Question(GenericIdEntity):
         ("mcq", "Multiple Choice"),
     ]
 
+    assessment_type = models.ForeignKey(
+        AssessmentType,
+        on_delete=models.CASCADE,
+        related_name="questions",
+        null=True,
+        blank=True
+    )
     section = models.ForeignKey(Section, on_delete=models.CASCADE)
     question_text = models.TextField()
     input_type = models.CharField(max_length=20, choices=INPUT_TYPES)
@@ -28,6 +55,7 @@ class Question(GenericIdEntity):
     class Meta:
         db_table = "healthassessment_question"
         managed = True
+        unique_together = ('section', 'question_text')
 
     def __str__(self):
         return self.question_text
@@ -48,6 +76,13 @@ class Option(GenericIdEntity):
 class AssessmentSession(GenericIdEntity):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
+    assessment_type = models.ForeignKey(
+        AssessmentType,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
+
     class Meta:
         db_table = "healthassessment_assessment_session"
         managed = True
@@ -65,11 +100,19 @@ class Answer(GenericIdEntity):
         blank=True
     )
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    assessment_type = models.ForeignKey(
+        AssessmentType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="answers"
+    )
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
     answer_text = models.TextField()
-    
+
     class Meta:
         db_table = "healthassessment_answer"
         managed = True
+
 
 
