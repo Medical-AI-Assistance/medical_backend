@@ -33,6 +33,7 @@ urlpatterns = [
     path('', server_status, name='server-status'),
     path('admin/', admin.site.urls),
     path('api/auth/', include('users_auth.urls')),
+    path('api/controlpanel/', include('controlpanel.urls')),
     path('api/', include('healthassessment.urls')),
 
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

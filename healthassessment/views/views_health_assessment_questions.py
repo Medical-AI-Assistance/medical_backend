@@ -127,7 +127,23 @@ class SectionListAPIView(APIView):
             "message": "Sections fetched successfully",
             "data": serializer.data
         }, status=status.HTTP_200_OK)
-    
+
+class AssessmentTypeSectionsAPIView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, reference_id):
+        try:
+            assessment_type = AssessmentType.objects.get(reference_id=reference_id)
+        except AssessmentType.DoesNotExist:
+            return Response({"error": "Not found"}, status=404)
+
+        sections = Section.objects.filter(assessment_type=assessment_type)
+        serializer = SectionSerializer(sections, many=True)
+        return Response({
+            "message": "Sections fetched successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
 
 class SectionCreateAPIView(APIView):
     authentication_classes = [CookieJWTAuthentication]
@@ -460,6 +476,57 @@ class OptionDeleteAPIView(APIView):
         return Response({"message": "Deleted"}, status=status.HTTP_200_OK)
 
 
+class AssessmentTypeQuestionsAPIView(APIView):
+    """
+    GET /health/assessment-types/<reference_id>/questions/
+
+    Returns all sections (with questions and options) belonging to the given assessment type.
+    """
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, reference_id):
+        try:
+            assessment_type = AssessmentType.objects.get(reference_id=reference_id)
+        except AssessmentType.DoesNotExist:
+            return Response({"message": "Assessment type not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        sections_data = []
+        sections = assessment_type.sections.prefetch_related("question_set__options").all()
+
+        for section in sections:
+            questions_data = []
+            for question in section.question_set.all():
+                options = []
+                if question.input_type == "mcq":
+                    options = [
+                        {"option_id": str(opt.reference_id), "option_text": opt.option_text}
+                        for opt in question.options.all()
+                    ]
+                questions_data.append({
+                    "question_id": str(question.reference_id),
+                    "question_text": question.question_text,
+                    "input_type": question.input_type,
+                    "options": options,
+                })
+
+            sections_data.append({
+                "section_id": str(section.reference_id),
+                "name": section.name,
+                "questions": questions_data,
+            })
+
+        return Response({
+            "message": "Assessment questions fetched successfully",
+            "data": {
+                "assessment_type_id": str(assessment_type.reference_id),
+                "name": assessment_type.name,
+                "description": assessment_type.description,
+                "sections": sections_data,
+            }
+        }, status=status.HTTP_200_OK)
+
+
 class SectionWithQuestionsCreateAPIView(APIView):
     """
     Single endpoint to create a section along with its questions and options.
@@ -520,56 +587,6 @@ class SectionWithQuestionsCreateAPIView(APIView):
             "errors": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
-
-class AssessmentTypeQuestionsAPIView(APIView):
-    """
-    GET /health/assessment-types/<reference_id>/questions/
-
-    Returns all sections (with questions and options) belonging to the given assessment type.
-    """
-    authentication_classes = [CookieJWTAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request, reference_id):
-        try:
-            assessment_type = AssessmentType.objects.get(reference_id=reference_id)
-        except AssessmentType.DoesNotExist:
-            return Response({"message": "Assessment type not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        sections_data = []
-        sections = assessment_type.sections.prefetch_related("question_set__options").all()
-
-        for section in sections:
-            questions_data = []
-            for question in section.question_set.all():
-                options = []
-                if question.input_type == "mcq":
-                    options = [
-                        {"option_id": str(opt.reference_id), "option_text": opt.option_text}
-                        for opt in question.options.all()
-                    ]
-                questions_data.append({
-                    "question_id": str(question.reference_id),
-                    "question_text": question.question_text,
-                    "input_type": question.input_type,
-                    "options": options,
-                })
-
-            sections_data.append({
-                "section_id": str(section.reference_id),
-                "name": section.name,
-                "questions": questions_data,
-            })
-
-        return Response({
-            "message": "Assessment questions fetched successfully",
-            "data": {
-                "assessment_type_id": str(assessment_type.reference_id),
-                "name": assessment_type.name,
-                "description": assessment_type.description,
-                "sections": sections_data,
-            }
-        }, status=status.HTTP_200_OK)
 
 
 class AssessmentTypeWithSectionsCreateAPIView(APIView):

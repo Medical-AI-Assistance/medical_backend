@@ -15,9 +15,8 @@ urlpatterns = [
     path("health/assessment-types/<uuid:reference_id>/delete/", views.AssessmentTypeDeleteAPIView.as_view(), name="assessment-type-delete"),
 
 
-    # In here we need to make a api endpoint that will take the secti
-
     path("health/sections/", views.SectionListAPIView.as_view(), name="section-list"),
+    path("health/assessment-type/<uuid:reference_id>/sections/", views.AssessmentTypeSectionsAPIView.as_view(), name="assessment-type-sections"),
     path("health/sections/create/", views.SectionCreateAPIView.as_view(), name="section-create"),
     path("health/sections/bulk-create/", views.SectionWithQuestionsCreateAPIView.as_view(), name="section-bulk-create"),
     path("health/sections/<uuid:reference_id>/", views.SectionDetailAPIView.as_view(), name="section-detail"),

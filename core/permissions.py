@@ -32,7 +32,7 @@ class IsAdminUser(BasePermission):
     # message = "You must be an admin to perform this action"
 
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_staff and request.user.is_admin)
+        return bool(request.user and request.user.is_admin)
 
 class IsAuthenticatedOrReadOnly(BasePermission):
     """
