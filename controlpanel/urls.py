@@ -4,10 +4,8 @@ from controlpanel.views import views_user_management, views_dashboard
 app_name = 'controlpanel'
 
 urlpatterns = [
-    # Dashboard routes
     path('dashboard/stats/', views_dashboard.DashboardStatsAPIView.as_view(), name='dashboard-stats'),
 
-    # User Management routes
     path('users/', views_user_management.UserListAPIView.as_view(), name='user-list'),
     path('users/create/', views_user_management.UserCreateAPIView.as_view(), name='user-create'),
     path('users/<uuid:reference_id>/ban-unban/', views_user_management.UserBanAPIView.as_view(), name='user-ban-unban'),

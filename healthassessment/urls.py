@@ -19,6 +19,8 @@ urlpatterns = [
     path("health/assessment-type/<uuid:reference_id>/sections/", views.AssessmentTypeSectionsAPIView.as_view(), name="assessment-type-sections"),
     path("health/sections/create/", views.SectionCreateAPIView.as_view(), name="section-create"),
     path("health/sections/bulk-create/", views.SectionWithQuestionsCreateAPIView.as_view(), name="section-bulk-create"),
+    # path("health/sections/<uuid:reference_id>")
+    path("health/sections/bulk-update/", views.SectionWithQuestionsUpdateAPIView.as_view(), name="section-bulk-update"),
     path("health/sections/<uuid:reference_id>/", views.SectionDetailAPIView.as_view(), name="section-detail"),
     path("health/sections/<uuid:reference_id>/update/", views.SectionUpdateAPIView.as_view(), name="section-update"),
     path("health/sections/<uuid:reference_id>/delete/", views.SectionDeleteAPIView.as_view(), name="section-delete"),
@@ -43,7 +45,4 @@ urlpatterns = [
     path('health/cardiovascular-risk-assessment/', views.DiagnoseCardiovascularAPIView.as_view(), name='cardiovascular-risk-assessment'),
     path('health/diabetes-risk-assessment/', views.DiagnoseDiabetesAPIView.as_view(), name='diabetes-risk-assessment'),
     path('health/respiratory-risk-assessment/', views.DiagnoseRespiratoryAPIView.as_view(), name='respiratory-risk-assessment'),
-
-
-
 ]

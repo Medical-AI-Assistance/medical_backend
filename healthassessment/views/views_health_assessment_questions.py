@@ -13,6 +13,7 @@ from healthassessment.serializers import (
     AssessmentTypeSerializer,
     SectionWithQuestionsSerializer,
     AssessmentTypeWithSectionsSerializer,
+    SectionWithQuestionsUpdateSerializer,
 )
 from core import permissions
 from core.authentication import CookieJWTAuthentication 
@@ -662,3 +663,32 @@ class AssessmentTypeWithSectionsCreateAPIView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
+
+
+class SectionWithQuestionsUpdateAPIView(APIView):
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request):
+        try:
+            section = Section.objects.get(reference_id=request.data.get("section_id"))
+        except Section.DoesNotExist:
+            return Response({"message": "Section not found"}, status=404)
+
+        serializer = SectionWithQuestionsUpdateSerializer(
+            instance=section,
+            data=request.data
+        )
+
+        if serializer.is_valid():
+            section = serializer.save()
+
+            return Response({
+                "message": "Section updated successfully",
+                "data": {
+                    "reference_id": str(section.reference_id),
+                    "name": section.name
+                }
+            })
+
+        return Response(serializer.errors, status=400)

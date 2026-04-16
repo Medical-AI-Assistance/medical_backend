@@ -57,6 +57,7 @@ class AnswerSerializer(serializers.ModelSerializer):
 # --- Bulk create: assessment type + sections + questions + options in one request ---
 
 class QuestionWithOptionsSerializer(serializers.Serializer):
+    question_id = serializers.UUIDField(required=False)
     question_text = serializers.CharField()
     input_type = serializers.ChoiceField(choices=["text", "number", "mcq"])
     options = serializers.ListField(
@@ -120,6 +121,105 @@ class SectionWithQuestionsSerializer(serializers.Serializer):
 
         return section
 
+
+class SectionWithQuestionsUpdateSerializer(serializers.Serializer):
+    section_id = serializers.UUIDField()
+    name = serializers.CharField(max_length=200)
+    assessment_type = serializers.SlugRelatedField(
+        slug_field="reference_id",
+        queryset=AssessmentType.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    
+    questions = QuestionWithOptionsSerializer(many=True, required=False)
+
+
+    def validate(self, data):
+        section_id = data.get("section_id")
+        questions = data.get("questions", [])
+
+        try:
+            section = Section.objects.get(reference_id=section_id)
+        except Section.DoesNotExist:
+            raise serializers.ValidationError({
+                "message": "Section not found."
+            })
+
+        existing_questions = section.question_set.all()
+        existing_ids = set(str(q.reference_id) for q in existing_questions)
+
+        invalid_count = 0
+
+        for q in questions:
+            q_id = q.get("question_id")
+            if q_id and str(q_id) not in existing_ids:
+                invalid_count += 1
+
+        if invalid_count > 0:
+            raise serializers.ValidationError({
+                "message": f"{invalid_count} question(s) do not exist in this section."
+            })
+
+        return data
+
+    def update(self, instance, validated_data):
+        questions_data = validated_data.pop("questions", [])
+
+        # 🔹 Update section
+        instance.name = validated_data.get("name", instance.name)
+        instance.assessment_type = validated_data.get("assessment_type", instance.assessment_type)
+        instance.save()
+
+        existing_questions = {str(q.reference_id): q for q in instance.question_set.all()}
+        incoming_ids = []
+
+        # 🔹 Process questions
+        for q_data in questions_data:
+            q_id = str(q_data.get("question_id", ""))
+
+            # if q_id:
+            #     q_id = str(q_id)
+
+            #     if q_id not in existing_questions:
+            #         raise serializers.ValidationError({
+            #             "questions": f"Question with id {q_id} does not exist in this section."
+            #     })
+
+            if q_id and q_id in existing_questions:
+                # UPDATE
+                question = existing_questions[q_id]
+                question.question_text = q_data.get("question_text", question.question_text)
+                question.input_type = q_data.get("input_type", question.input_type)
+                question.save()
+
+                incoming_ids.append(q_id)
+
+                # 🔸 Handle options
+                if question.input_type == "mcq":
+                    options = q_data.get("options", [])
+                    question.options.all().delete()
+                    for opt in options:
+                        Option.objects.create(question=question, option_text=opt)
+
+            else:
+                # CREATE
+                options = q_data.pop("options", [])
+                question = Question.objects.create(
+                    section=instance,
+                    assessment_type=instance.assessment_type,
+                    **q_data
+                )
+
+                for opt in options:
+                    Option.objects.create(question=question, option_text=opt)
+
+        # 🔹 DELETE removed questions
+        for q_id, q_obj in existing_questions.items():
+            if q_id not in incoming_ids:
+                q_obj.delete()
+
+        return instance
 
 class SectionBulkSerializer(serializers.Serializer):
     """One section entry inside AssessmentTypeWithSectionsSerializer."""
