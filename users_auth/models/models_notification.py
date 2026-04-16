@@ -4,6 +4,12 @@ from generic.models import GenericIdEntity
 
 class Notification(GenericIdEntity):
     NOTIFICATION_TYPES = (
+        ('LOGIN_SUCCESSFUL', 'Login Successful'),
+        ('REGISTER_SUCCESSFUL', 'Register Successful'),
+        ('USER_BANNED', 'User Banned'),
+        ('USER_UNBANNED', 'User Unbanned'),
+        ('ADMIN_PRIVILEGE_GRANTED', 'Admin Privilege Granted'),
+        ('ADMIN_PRIVILEGE_REVOKED', 'Admin Privilege Revoked'),
         ('SALE_ADDED', 'Sale Added'),
         ('SYSTEM', 'System Notification'),
         ('profile_update', 'Profile Update'),

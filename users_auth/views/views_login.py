@@ -16,6 +16,7 @@ from users_auth.utils.utils_register import (
 )
 from users_auth.serializers import ForgotPasswordSerializer, ResetPasswordSerializer, VerifyOTPForgotPasswordSerializer
 from datetime import datetime, timedelta
+from core.utils import create_notification
 
 class LoginView(APIView):
     """
@@ -44,6 +45,13 @@ class LoginView(APIView):
         )
         
         tokens = get_tokens_for_user(user)
+        
+        create_notification(
+            user=user,
+            title="Login Successful",
+            message=f"You have successfully logged in from {get_client_ip(request)}.",
+            notification_type="LOGIN_SUCCESSFUL"
+        )
         
         user_data = UserSerializer(user).data
 

@@ -1,7 +1,7 @@
 from .views_login import LoginView, LogoutView, UserProfileView, ChangePasswordView, AuthCheckView, ForgotPasswordView, VerifyForgotPasswordOTPView, ResetPasswordView, ResendForgotPasswordOTPView
 from .views_register import RegisterView, VerifyEmailView, ResendVerificationEmailView
-from .views_profile import UserProfileDetailView, UserProfileUpdateView
-from .views_notification import NotificationListAPIView, MarkNotificationReadView
+from .views_profile import UserProfileDetailView, UserProfileUpdateView, ProfilePictureUpdateAPIView
+from .views_notification import NotificationListAPIView, MarkNotificationReadView, MarkAllNotificationsReadView
 
 __all__ = [
     'LoginView',        
@@ -18,6 +18,8 @@ __all__ = [
     'ResendForgotPasswordOTPView',
     'UserProfileDetailView',
     'UserProfileUpdateView',
+    'ProfilePictureUpdateAPIView',
     'NotificationListAPIView',
     'MarkNotificationReadView',
+    'MarkAllNotificationsReadView',
 ]

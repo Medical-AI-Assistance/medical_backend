@@ -29,6 +29,7 @@ from users_auth.utils.utils_register import (
     send_verification_email
     )
 from users_auth.models import User, RecentActivity
+from core.utils import create_notification
 import logging
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,13 @@ class RegisterView(generics.CreateAPIView):
                     user=user,
                     activity_type='USER_REGISTERED',
                     description='New user registered'
+                )
+
+                create_notification(
+                    user=user,
+                    title="Registration Successful",
+                    message="Welcome! Your account has been registered successfully. Please verify your email.",
+                    notification_type="REGISTER_SUCCESSFUL"
                 )
 
 

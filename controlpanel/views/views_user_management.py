@@ -14,6 +14,7 @@ from controlpanel.serializers import (
     UserStatusSerializer,
     UserAdminSerializer
 )
+from core.utils import create_notification
 import logging
 
 logger = logging.getLogger(__name__)
@@ -102,6 +103,22 @@ class UserBanAPIView(AdminAccessibleAPIView):
             user.save(update_fields=['is_banned', 'is_active'])
 
             action_text = "banned" if is_banned else "unbanned"
+            
+            # Notify the target user
+            create_notification(
+                user=user,
+                title=f"Account {action_text.capitalize()}",
+                message=f"Your account has been {action_text} by an administrator.",
+                notification_type="USER_BANNED" if is_banned else "USER_UNBANNED"
+            )
+
+            # Notify the action performer (admin)
+            create_notification(
+                user=request.user,
+                title=f"User {action_text.capitalize()}",
+                message=f"You have successfully {action_text} {user.first_name} {user.last_name} ({user.email}).",
+                notification_type="SYSTEM"
+            )
             return Response({
                 "message": f"User {action_text} successfully.",
                 "data": UserManagementSerializer(user).data
@@ -147,6 +164,22 @@ class UserAdminRightsAPIView(AdminAccessibleAPIView):
             user.save(update_fields=['is_admin', 'is_staff'])
 
             action_text = "granted" if is_admin else "revoked"
+
+            # Notify the target user
+            create_notification(
+                user=user,
+                title=f"Admin Rights {action_text.capitalize()}",
+                message=f"Your admin privileges have been {action_text} by an administrator.",
+                notification_type="ADMIN_PRIVILEGE_GRANTED" if is_admin else "ADMIN_PRIVILEGE_REVOKED"
+            )
+
+            # Notify the action performer (admin)
+            create_notification(
+                user=request.user,
+                title=f"Admin Rights {action_text.capitalize()}",
+                message=f"You have successfully {action_text} admin rights for {user.first_name} {user.last_name} ({user.email}).",
+                notification_type="SYSTEM"
+            )
             return Response({
                 "message": f"Admin rights {action_text} successfully.",
                 "data": UserManagementSerializer(user).data

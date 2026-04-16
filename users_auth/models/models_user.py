@@ -289,7 +289,7 @@ class UserProfile(GenericIdEntity):
             self.gender, self.address_line1, self.city, self.country,
             self.postal_code, self.occupation, self.about_me,
             self.user.first_name, self.user.last_name, 
-            self.user.phone_number, self.user.profile_picture
+            self.user.phone_number, self.profile_picture
         ]
         
         filled_fields = sum(1 for field in fields_to_check if field)

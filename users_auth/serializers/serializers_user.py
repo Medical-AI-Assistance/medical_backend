@@ -24,8 +24,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['profile_completion_percentage']
 
 
+class ProfilePictureSerializer(serializers.ModelSerializer):
+    """Serializer explicitly for handling profile picture uploads"""
+    class Meta:
+        model = UserProfile
+        fields = ['profile_picture']
+
+
 class UserSerializer(serializers.ModelSerializer):
-    profile = UserProfileSerializer(read_only=True)
+    profile = UserProfileSerializer(required=False)
     full_name = serializers.SerializerMethodField()
     
     class Meta:
@@ -44,9 +51,28 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_profile_picture(self, obj):
         request = self.context.get('request')
-        if obj.profile_picture and request:
-            return request.build_absolute_uri(obj.profile_picture.url)
+        if hasattr(obj, 'profile') and obj.profile and obj.profile.profile_picture and request:
+            return request.build_absolute_uri(obj.profile.profile_picture.url)
         return None
+
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop('profile', None)
+        
+        # Update User fields directly
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update nested UserProfile fields seamlessly
+        if profile_data is not None:
+            profile = instance.profile
+            for attr, value in profile_data.items():
+                if attr != 'profile_picture': # Protect picture from JSON updates
+                    setattr(profile, attr, value)
+            profile.save()
+            profile.calculate_completion_percentage()
+            
+        return instance
 
 
 class RegisterSerializer(serializers.ModelSerializer):

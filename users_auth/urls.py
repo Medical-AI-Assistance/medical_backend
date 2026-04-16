@@ -19,12 +19,13 @@ urlpatterns = [
     path('forgot-password/reset-password/', views.ResetPasswordView.as_view(), name='forgot-password-reset-password'),
     path('forgot-password/resend-otp/', views.ResendForgotPasswordOTPView.as_view(), name='forgot-password-resend-otp'),
     
-    # User Profile
     path('profile/', views.UserProfileDetailView.as_view(), name='profile'),
     path('profile/update/', views.UserProfileUpdateView.as_view(), name='profile-update'),
+    path('profile/picture/', views.ProfilePictureUpdateAPIView.as_view(), name='profile-picture-update'),
     path('change-password/', views.ChangePasswordView.as_view(), name='change-password'),
 
     # Notifications
     path('notifications/', views.NotificationListAPIView.as_view(), name='notifications'),
-    path('notifications/<pk>/read/', views.MarkNotificationReadView.as_view(), name='mark-notification-read'),
+    path('notifications/<uuid:reference_id>/read/', views.MarkNotificationReadView.as_view(), name='mark-notification-read'),
+    path('notifications/read-all/', views.MarkAllNotificationsReadView.as_view(), name='mark-all-notifications-read'),
 ]
