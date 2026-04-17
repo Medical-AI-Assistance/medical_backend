@@ -115,4 +115,19 @@ class Answer(GenericIdEntity):
         managed = True
 
 
+class DiagnosisReport(GenericIdEntity):
+    session = models.ForeignKey(
+        AssessmentSession,
+        on_delete=models.CASCADE,
+        related_name="diagnosis_reports"
+    )
+    risk_level = models.CharField(max_length=50)
+    problems = models.JSONField(default=list)
+    recommendations = models.JSONField(default=list)
 
+    class Meta:
+        db_table = "healthassessment_diagnosis_report"
+        managed = True
+
+    def __str__(self):
+        return f"Diagnosis Report for Session {self.session.reference_id}"

@@ -14,6 +14,7 @@ from healthassessment.serializers import (
     SectionWithQuestionsSerializer,
     AssessmentTypeWithSectionsSerializer,
     SectionWithQuestionsUpdateSerializer,
+    AssessmentTypeFullTreeSerializer,
 )
 from core import permissions
 from core.authentication import CookieJWTAuthentication 
@@ -221,8 +222,43 @@ class SectionDeleteAPIView(APIView):
 
         section.delete()
         return Response({"message": "Deleted"})
-    
 
+
+class SectionQuestionsDeleteAPIView(APIView):
+    """
+    DELETE /health/sections/<reference_id>/questions/delete/
+
+    Deletes ALL questions (and their options via CASCADE) that belong
+    to the given section. Does NOT delete the section itself.
+
+    Why filter by section only (not assessment_type)?
+    The Question.assessment_type FK is denormalised data — it always
+    mirrors the section's own assessment_type. Filtering by section is
+    the canonical, authoritative relationship.
+    """
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, reference_id):
+        try:
+            section = Section.objects.get(reference_id=reference_id)
+            section_id = section.reference_id
+            section_name = section.name
+
+        except Section.DoesNotExist:
+            return Response({"error": "Section not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        question_count = Question.objects.filter(section=section).count()
+
+        deleted_count, _ = Question.objects.filter(section=section).delete()
+        section.delete()
+
+        return Response({
+            "message": f"All questions for section '{section_name}' deleted successfully",
+            "section_id": str(section_id),
+            "section_name": section_name,
+            "questions_deleted": question_count,
+        }, status=status.HTTP_200_OK)
 
 
 class QuestionListAPIView(APIView):
@@ -692,3 +728,59 @@ class SectionWithQuestionsUpdateAPIView(APIView):
             })
 
         return Response(serializer.errors, status=400)
+
+
+class AllAssessmentTypesFullTreeAPIView(APIView):
+    """
+    GET /health/assessment-types/full-tree/
+
+    Returns every assessment type with its sections, and every
+    section with its questions (and options for MCQ questions).
+
+    Response shape:
+    {
+        "message": "...",
+        "total": <int>,
+        "data": [
+            {
+                "reference_id": "<uuid>",
+                "name": "General Health Assessment",
+                "description": "...",
+                "sections": [
+                    {
+                        "reference_id": "<uuid>",
+                        "name": "Personal Information",
+                        "questions": [
+                            {
+                                "reference_id": "<uuid>",
+                                "question_text": "What is your age?",
+                                "input_type": "number",
+                                "options": []
+                            },
+                            ...
+                        ]
+                    },
+                    ...
+                ]
+            },
+            ...
+        ]
+    }
+    """
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        assessment_types = (
+            AssessmentType.objects
+            .prefetch_related(
+                "sections__question_set__options"
+            )
+            .all()
+        )
+        serializer = AssessmentTypeFullTreeSerializer(assessment_types, many=True)
+        return Response({
+            "message": "All assessment types with sections and questions fetched successfully",
+            "total": assessment_types.count(),
+            "data": serializer.data,
+        }, status=status.HTTP_200_OK)

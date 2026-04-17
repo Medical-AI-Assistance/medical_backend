@@ -287,3 +287,39 @@ class AssessmentTypeWithSectionsSerializer(serializers.Serializer):
                     Option.objects.create(question=question, option_text=opt_text)
 
         return assessment_type
+
+
+# ---  Read-only nested full-tree serializers  ---
+
+class OptionReadSerializer(serializers.ModelSerializer):
+    option_id = serializers.UUIDField(source="reference_id", read_only=True)
+    class Meta:
+        model = Option
+        fields = ["option_id", "option_text"]
+
+
+class QuestionReadSerializer(serializers.ModelSerializer):
+    options = OptionReadSerializer(many=True, read_only=True)   
+    question_id = serializers.UUIDField(source="reference_id", read_only=True)
+
+    class Meta:
+        model = Question
+        fields = ["question_id", "question_text", "input_type", "options"]
+
+
+class SectionReadSerializer(serializers.ModelSerializer):
+    section_id = serializers.UUIDField(source="reference_id", read_only=True)
+    questions = QuestionReadSerializer(many=True, read_only=True, source="question_set")
+
+    class Meta:
+        model = Section
+        fields = ["section_id", "name", "questions"]
+
+
+class AssessmentTypeFullTreeSerializer(serializers.ModelSerializer):
+    assessment_type_id = serializers.UUIDField(source="reference_id", read_only=True)
+    sections = SectionReadSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = AssessmentType
+        fields = ["assessment_type_id", "name", "description", "sections"]
