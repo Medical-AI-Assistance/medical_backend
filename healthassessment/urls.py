@@ -29,6 +29,8 @@ urlpatterns = [
 
     # Bulk update section with questions and options
     path("health/sections/bulk-update/", views.SectionWithQuestionsUpdateAPIView.as_view(), name="section-bulk-update"),
+
+    # section detail, update and delete
     path("health/sections/<uuid:reference_id>/", views.SectionDetailAPIView.as_view(), name="section-detail"),
     path("health/sections/<uuid:reference_id>/update/", views.SectionUpdateAPIView.as_view(), name="section-update"),
     path("health/sections/<uuid:reference_id>/delete/", views.SectionDeleteAPIView.as_view(), name="section-delete"),
@@ -36,22 +38,27 @@ urlpatterns = [
     # Delete all questions belonging to a section (section itself is kept)
     path("health/sections/<uuid:reference_id>/questions/delete/", views.SectionQuestionsDeleteAPIView.as_view(), name="section-questions-delete"),
 
-
+    # Questions
     path("health/questions/", views.QuestionListAPIView.as_view(), name="question-list"),
     path("health/questions/create/", views.QuestionCreateAPIView.as_view(), name="question-create"),
     path("health/questions/<uuid:reference_id>/", views.QuestionDetailAPIView.as_view(), name="question-detail"),
     path("health/questions/<uuid:reference_id>/update/", views.QuestionUpdateAPIView.as_view(), name="question-update"),
     path("health/questions/<uuid:reference_id>/delete/", views.QuestionDeleteAPIView.as_view(), name="question-delete"),
 
+    # Options
     path("health/options/", views.OptionListAPIView.as_view(), name="option-list"),
     path("health/options/create/", views.OptionCreateAPIView.as_view(), name="option-create"),
     path("health/options/<uuid:reference_id>/", views.OptionDetailAPIView.as_view(), name="option-detail"),
     path("health/options/<uuid:reference_id>/update/", views.OptionUpdateAPIView.as_view(), name="option-update"),
     path("health/options/<uuid:reference_id>/delete/", views.OptionDeleteAPIView.as_view(), name="option-delete"),
 
+    # Answers
     path("health/answers/submit/", views.AnswerSubmitAPIView.as_view(), name="answer-submit"),
     path("health/answers/list/<uuid:assessment_type_id>/", views.UserAnswerListAPIView.as_view(), name="user-answers"),
 
+    # Diagnosis
     path('health/diagnose/', views.DiagnoseAPIView.as_view(), name='diagnose'),
     path('health/diagnose/history/<uuid:assessment_type_id>/', views.DiagnosisHistoryAPIView.as_view(), name='diagnose-history'),
+    path('health/diagnose/reports/<uuid:assessment_type_id>/', views.AssessmentTypeDiagnosisReportsAPIView.as_view(), name='assessment-type-diagnose-reports'),
+    path('health/dashboard/stats/', views.UserDashboardStatisticsAPIView.as_view(), name='user-dashboard-stats'),
 ]

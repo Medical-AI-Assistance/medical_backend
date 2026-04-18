@@ -16,7 +16,7 @@ class SectionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Section
-        fields = ["reference_id", "name", "assessment_type"]
+        fields = ["reference_id", "name", "assessment_type", "is_draft"]
 
 
 class OptionSerializer(serializers.ModelSerializer):
@@ -80,6 +80,7 @@ class QuestionWithOptionsSerializer(serializers.Serializer):
 
 class SectionWithQuestionsSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=200)
+    is_draft = serializers.BooleanField(default=False)
     assessment_type = serializers.SlugRelatedField(
         slug_field="reference_id",
         queryset=AssessmentType.objects.all(),
@@ -125,6 +126,7 @@ class SectionWithQuestionsSerializer(serializers.Serializer):
 class SectionWithQuestionsUpdateSerializer(serializers.Serializer):
     section_id = serializers.UUIDField()
     name = serializers.CharField(max_length=200)
+    is_draft = serializers.BooleanField(default=False)
     assessment_type = serializers.SlugRelatedField(
         slug_field="reference_id",
         queryset=AssessmentType.objects.all(),
@@ -137,30 +139,12 @@ class SectionWithQuestionsUpdateSerializer(serializers.Serializer):
 
     def validate(self, data):
         section_id = data.get("section_id")
-        questions = data.get("questions", [])
-
         try:
-            section = Section.objects.get(reference_id=section_id)
+            Section.objects.get(reference_id=section_id)
         except Section.DoesNotExist:
             raise serializers.ValidationError({
                 "message": "Section not found."
             })
-
-        existing_questions = section.question_set.all()
-        existing_ids = set(str(q.reference_id) for q in existing_questions)
-
-        invalid_count = 0
-
-        for q in questions:
-            q_id = q.get("question_id")
-            if q_id and str(q_id) not in existing_ids:
-                invalid_count += 1
-
-        if invalid_count > 0:
-            raise serializers.ValidationError({
-                "message": f"{invalid_count} question(s) do not exist in this section."
-            })
-
         return data
 
     def update(self, instance, validated_data):
@@ -169,61 +153,34 @@ class SectionWithQuestionsUpdateSerializer(serializers.Serializer):
         # 🔹 Update section
         instance.name = validated_data.get("name", instance.name)
         instance.assessment_type = validated_data.get("assessment_type", instance.assessment_type)
+        instance.is_draft = validated_data.get("is_draft", instance.is_draft)
         instance.save()
 
-        existing_questions = {str(q.reference_id): q for q in instance.question_set.all()}
-        incoming_ids = []
+        # 🔹 Delete all existing questions for this section
+        instance.question_set.all().delete()
 
-        # 🔹 Process questions
+        # 🔹 Create new questions
         for q_data in questions_data:
-            q_id = str(q_data.get("question_id", ""))
+            options_texts = q_data.pop("options", [])
+            
+            # question_id is ignored if present, as requested
+            q_data.pop("question_id", None) 
 
-            # if q_id:
-            #     q_id = str(q_id)
+            question = Question.objects.create(
+                section=instance,
+                assessment_type=instance.assessment_type,
+                **q_data
+            )
 
-            #     if q_id not in existing_questions:
-            #         raise serializers.ValidationError({
-            #             "questions": f"Question with id {q_id} does not exist in this section."
-            #     })
-
-            if q_id and q_id in existing_questions:
-                # UPDATE
-                question = existing_questions[q_id]
-                question.question_text = q_data.get("question_text", question.question_text)
-                question.input_type = q_data.get("input_type", question.input_type)
-                question.save()
-
-                incoming_ids.append(q_id)
-
-                # 🔸 Handle options
-                if question.input_type == "mcq":
-                    options = q_data.get("options", [])
-                    question.options.all().delete()
-                    for opt in options:
-                        Option.objects.create(question=question, option_text=opt)
-
-            else:
-                # CREATE
-                options = q_data.pop("options", [])
-                question = Question.objects.create(
-                    section=instance,
-                    assessment_type=instance.assessment_type,
-                    **q_data
-                )
-
-                for opt in options:
-                    Option.objects.create(question=question, option_text=opt)
-
-        # 🔹 DELETE removed questions
-        for q_id, q_obj in existing_questions.items():
-            if q_id not in incoming_ids:
-                q_obj.delete()
+            for opt_text in options_texts:
+                Option.objects.create(question=question, option_text=opt_text)
 
         return instance
 
 class SectionBulkSerializer(serializers.Serializer):
     """One section entry inside AssessmentTypeWithSectionsSerializer."""
     name = serializers.CharField(max_length=200)
+    is_draft = serializers.BooleanField(default=False)
     questions = QuestionWithOptionsSerializer(many=True, required=False, default=list)
 
 
@@ -313,7 +270,7 @@ class SectionReadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Section
-        fields = ["section_id", "name", "questions"]
+        fields = ["section_id", "name", "questions", "is_draft"]
 
 
 class AssessmentTypeFullTreeSerializer(serializers.ModelSerializer):

@@ -6,6 +6,7 @@ from core import permissions
 from core.authentication import CookieJWTAuthentication
 
 from users_auth.models.models_user import User
+from healthassessment.models import Question, AssessmentType
 import logging
 
 logger = logging.getLogger(__name__)
@@ -26,12 +27,16 @@ class DashboardStatsAPIView(AdminAccessibleAPIView):
         total_active_users = User.objects.filter(is_active=True).count()
         total_banned_users = User.objects.filter(is_banned=True).count()
         total_admin_users = User.objects.filter(is_admin=True).count()
+        total_draft_questions = Question.objects.filter(section__is_draft=True).count()
+        total_assessment_types = AssessmentType.objects.count()
 
         data = {
             "total_users": total_users,
             "total_active_users": total_active_users,
             "total_banned_users": total_banned_users,
             "total_admin_users": total_admin_users,
+            "total_draft_questions": total_draft_questions,
+            "total_assessment_types": total_assessment_types,
         }
 
         return Response({

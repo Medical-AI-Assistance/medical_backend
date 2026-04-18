@@ -24,6 +24,7 @@ class Section(GenericIdEntity):
     )
 
     name = models.CharField(max_length=200)
+    is_draft = models.BooleanField(default=False)
 
     class Meta:
         db_table = "healthassessment_section"
@@ -119,6 +120,13 @@ class DiagnosisReport(GenericIdEntity):
     session = models.ForeignKey(
         AssessmentSession,
         on_delete=models.CASCADE,
+        related_name="diagnosis_reports"
+    )
+    assessment_type = models.ForeignKey(
+        AssessmentType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="diagnosis_reports"
     )
     risk_level = models.CharField(max_length=50)

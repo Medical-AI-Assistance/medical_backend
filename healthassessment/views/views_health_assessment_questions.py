@@ -123,7 +123,7 @@ class SectionListAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        sections = Section.objects.all()
+        sections = Section.objects.filter(is_draft=False)
         serializer = SectionSerializer(sections, many=True)
         return Response({
             "message": "Sections fetched successfully",
@@ -140,7 +140,7 @@ class AssessmentTypeSectionsAPIView(APIView):
         except AssessmentType.DoesNotExist:
             return Response({"error": "Not found"}, status=404)
 
-        sections = Section.objects.filter(assessment_type=assessment_type)
+        sections = Section.objects.filter(assessment_type=assessment_type, is_draft=False)
         serializer = SectionSerializer(sections, many=True)
         return Response({
             "message": "Sections fetched successfully",
@@ -267,7 +267,7 @@ class QuestionListAPIView(APIView):
 
     def get(self, request):
 
-        sections = Section.objects.all() 
+        sections = Section.objects.filter(is_draft=False)
 
         data = []
 
@@ -529,7 +529,7 @@ class AssessmentTypeQuestionsAPIView(APIView):
             return Response({"message": "Assessment type not found"}, status=status.HTTP_404_NOT_FOUND)
 
         sections_data = []
-        sections = assessment_type.sections.prefetch_related("question_set__options").all()
+        sections = assessment_type.sections.filter().prefetch_related("question_set__options").all()
 
         for section in sections:
             questions_data = []
@@ -549,6 +549,7 @@ class AssessmentTypeQuestionsAPIView(APIView):
 
             sections_data.append({
                 "section_id": str(section.reference_id),
+                "is_draft": section.is_draft,
                 "name": section.name,
                 "questions": questions_data,
             })
@@ -573,6 +574,7 @@ class SectionWithQuestionsCreateAPIView(APIView):
     Request body:
     {
         "name": "Personal Information",
+        "is_draft": true,
         "assessment_type": "<uuid>",   // optional
         "questions": [
             {
@@ -603,6 +605,7 @@ class SectionWithQuestionsCreateAPIView(APIView):
                     {"reference_id": str(opt.reference_id), "option_text": opt.option_text}
                     for opt in q.options.all()
                 ]
+
                 questions_data.append({
                     "reference_id": str(q.reference_id),
                     "question_text": q.question_text,
@@ -613,7 +616,8 @@ class SectionWithQuestionsCreateAPIView(APIView):
             return Response({
                 "message": "Section created successfully",
                 "data": {
-                    "reference_id": str(section.reference_id),
+                    "section_id": str(section.reference_id),
+                    "is_draft": section.is_draft,
                     "name": section.name,
                     "questions": questions_data,
                 }
@@ -774,7 +778,10 @@ class AllAssessmentTypesFullTreeAPIView(APIView):
         assessment_types = (
             AssessmentType.objects
             .prefetch_related(
-                "sections__question_set__options"
+                models.Prefetch(
+                    "sections",
+                    queryset=Section.objects.filter(is_draft=False).prefetch_related("question_set__options")
+                )
             )
             .all()
         )

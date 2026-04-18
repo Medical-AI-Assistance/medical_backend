@@ -7,6 +7,9 @@ from django.conf import settings
 from healthassessment.models import Question, Answer, AssessmentSession, AssessmentType, DiagnosisReport
 from django.db.models import Prefetch
 import json
+from healthassessment.paginations import CustomPagination
+from django.utils import timezone
+from datetime import timedelta
 
 class AnswerSubmitAPIView(APIView):
     authentication_classes = [CookieJWTAuthentication]
@@ -189,53 +192,6 @@ class AssessmentTypeSessionsAPIView(APIView):
         })
 
 
-class DiagnosisHistoryAPIView(APIView):
-    """
-    GET /health/diagnose/history/<uuid:assessment_type_id>/
-    Lists all auto-generated diagnostic reports for the user's sessions matching the given assessment type.
-    """
-    authentication_classes = [CookieJWTAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request, assessment_type_id):
-        try:
-            assessment_type = AssessmentType.objects.get(reference_id=assessment_type_id)
-        except (AssessmentType.DoesNotExist, ValueError):
-            return Response({"error": "Assessment type not found"}, status=404)
-
-        # Get all sessions matching user and assessment_type that also have an AI response
-        sessions = AssessmentSession.objects.filter(
-            user=request.user,
-            assessment_type=assessment_type,
-            diagnosis_reports__isnull=False
-        ).prefetch_related("diagnosis_reports").order_by("-created_at").distinct()
-
-        history_data = []
-        for session in sessions:
-            reports = session.diagnosis_reports.order_by("-created_at")
-            report_list = []
-            for report in reports:
-                report_list.append({
-                    "id": str(report.reference_id),
-                    "created_at": getattr(report, 'created_at', session.created_at),
-                    "risk_level": report.risk_level,
-                    "problems": report.problems,
-                    "recommendations": report.recommendations
-                })
-                
-            history_data.append({
-                "session_id": str(session.reference_id),
-                "created_at": session.created_at,
-                "reports": report_list
-            })
-
-        return Response({
-            "assessment_type_id": str(assessment_type.reference_id),
-            "assessment_type": assessment_type.name,
-            "total_sessions_with_reports": len(history_data),
-            "history": history_data
-        })
-
 
 ASSESSMENT_JSON_SCHEMA = (
     "Return ONLY valid JSON in this exact format — no markdown, no extra text:\n\n"
@@ -302,8 +258,8 @@ class DiagnoseAPIView(APIView):
         ).select_related("question")
 
         # Print the answers for debugging with the actual question and answer and also print the assessment type
-        for ans in answers:
-            print(f"Question: {ans.question.question_text}, Answer: {ans.answer_text}")
+        # for ans in answers:
+        #     print(f"Question: {ans.question.question_text}, Answer: {ans.answer_text}")
 
         if not answers.exists():
             return Response({"error": "No answers found for this session and assessment type"}, status=400)
@@ -357,6 +313,7 @@ class DiagnoseAPIView(APIView):
         # Save diagnosis to database as a new record
         DiagnosisReport.objects.create(
             session=session,
+            assessment_type=assessment_type,
             risk_level=parsed_result.get("risk_level", ""),
             problems=parsed_result.get("problems", []),
             recommendations=parsed_result.get("recommendations", [])
@@ -368,3 +325,121 @@ class DiagnoseAPIView(APIView):
             "assessment": parsed_result
         })
 
+
+class DiagnosisHistoryAPIView(APIView):
+    """
+    GET /health/diagnose/history/<uuid:assessment_type_id>/
+    Lists all auto-generated diagnostic reports for the user's sessions matching the given assessment type.
+    Optionally accepts a `session_id` query parameter to filter by a specific session.
+    """
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, assessment_type_id):
+        try:
+            assessment_type = AssessmentType.objects.get(reference_id=assessment_type_id)
+        except (AssessmentType.DoesNotExist, ValueError):
+            return Response({"error": "Assessment type not found"}, status=404)
+
+        reports_query = DiagnosisReport.objects.filter(
+            assessment_type=assessment_type,
+            session__user=request.user
+        ).select_related("session").order_by("-created_at")
+
+        session_id = request.query_params.get('session_id')
+        if session_id:
+            try:
+                reports_query = reports_query.filter(session__reference_id=session_id)
+            except ValueError:
+                return Response({"error": "Invalid session_id"}, status=400)
+
+        paginator = CustomPagination()
+        paginated_reports = paginator.paginate_queryset(reports_query, request, view=self)
+
+        report_list = []
+        for report in paginated_reports:
+            report_list.append({
+                "report_id": str(report.reference_id),
+                "session_id": str(report.session.reference_id),
+                "assessment_type_id": str(assessment_type.reference_id),
+                "assessment_type": assessment_type.name,
+                "created_at": getattr(report, 'created_at', report.session.created_at),
+                "risk_level": report.risk_level,
+                "problems": report.problems,
+                "recommendations": report.recommendations
+            })
+
+        return paginator.get_paginated_response(report_list)
+
+class AssessmentTypeDiagnosisReportsAPIView(APIView):
+    """
+    GET /health/assessment-types/<uuid:assessment_type_id>/diagnoses/
+    Lists all diagnostic reports for the user for a specific assessment type, querying directly.
+    """
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, assessment_type_id):
+        try:
+            assessment_type = AssessmentType.objects.get(reference_id=assessment_type_id)
+        except (AssessmentType.DoesNotExist, ValueError):
+            return Response({"error": "Assessment type not found"}, status=404)
+
+        reports = DiagnosisReport.objects.filter(
+            assessment_type=assessment_type,
+            session__user=request.user
+        ).select_related("session").order_by("-created_at")
+
+        report_list = []
+        for report in reports:
+            report_list.append({
+                "report_id": str(report.reference_id),
+                "session_id": str(report.session.reference_id),
+                "created_at": report.created_at,
+                "risk_level": report.risk_level,
+                "problems": report.problems,
+                "recommendations": report.recommendations
+            })
+
+        return Response({
+            "assessment_type_id": str(assessment_type.reference_id),
+            "assessment_type": assessment_type.name,
+            "total_reports": len(report_list),
+            "reports": report_list
+        })
+
+class UserDashboardStatisticsAPIView(APIView):
+    """
+    GET /health/dashboard/stats/
+    Returns summary statistics for the user dashboard.
+    """
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        # 1. Total available assessments
+        available_assessments = AssessmentType.objects.count()
+
+        # 2. Total scans (DiagnosisReports) for the logged-in user
+        total_scans = DiagnosisReport.objects.filter(session__user=request.user).count()
+
+        # 3. Last 24 hours scans for the logged-in user
+        last_24h = timezone.now() - timedelta(hours=24)
+        last_24h_scans = DiagnosisReport.objects.filter(
+            session__user=request.user, 
+            created_at__gte=last_24h
+        ).count()
+
+        # 4. Risk level of the last scanned assessment
+        last_report = DiagnosisReport.objects.filter(
+            session__user=request.user
+        ).order_by("-created_at").first()
+        
+        last_risk_level = last_report.risk_level if last_report else "N/A"
+
+        return Response({
+            "available_assessments": available_assessments,
+            "total_scans": total_scans,
+            "last_24h_scans": last_24h_scans,
+            "last_risk_level": last_risk_level
+        })
