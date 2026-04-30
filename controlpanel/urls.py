@@ -11,3 +11,4 @@ urlpatterns = [
     path('users/<uuid:reference_id>/ban-unban/', views_user_management.UserBanAPIView.as_view(), name='user-ban-unban'),
     path('users/<uuid:reference_id>/admin-rights/', views_user_management.UserAdminRightsAPIView.as_view(), name='user-admin-rights'),
 ]
+ 
